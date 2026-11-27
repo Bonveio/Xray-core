@@ -223,29 +223,6 @@ func requiresTransportSecurity(address *Address) bool {
 	return !geodata.GetPrivateDomainMatcher().MatchAny(domain)
 }
 
-func validateOutboundTransportSecurity(rawConfig interface{}, senderSettings *proxyman.SenderConfig) error {
-	if senderSettings.StreamSettings != nil && senderSettings.StreamSettings.GetSecurityType() != "" {
-		return nil
-	}
-
-	if vlessCfg, ok := rawConfig.(*VLessOutboundConfig); ok {
-		if vlessCfg.Encryption != "" && vlessCfg.Encryption != "none" {
-			return nil
-		}
-		if requiresTransportSecurity(vlessCfg.Address) {
-			return errors.New("vless without TLS or other encryption is prohibited unless the server address is a private IP or domain")
-		}
-	}
-
-	if tjCfg, ok := rawConfig.(*TrojanClientConfig); ok {
-		if requiresTransportSecurity(tjCfg.Servers[0].Address) {
-			return errors.New("trojan without TLS is prohibited unless the server address is a private IP or domain")
-		}
-	}
-
-	return nil
-}
-
 // validateXDrive allows only encrypted VLESS on xdrive, with native multiplex on every client connection.
 func validateXDrive(ts proto.Message, ss *internet.StreamConfig, pl *net.PortList) error {
 	if ss == nil || ss.ProtocolName != "xdrive" {
@@ -379,9 +356,6 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 		}
 	}
 	if err := validateXDrive(ts, senderSettings.StreamSettings, nil); err != nil {
-		return nil, err
-	}
-	if err := validateOutboundTransportSecurity(rawConfig, senderSettings); err != nil {
 		return nil, err
 	}
 
